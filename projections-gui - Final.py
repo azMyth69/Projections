@@ -1,6 +1,7 @@
 import pandas as pd
 import tkinter as tk
 from tkinter import filedialog, messagebox
+import os
 
 def adjust_weekdays(day):
     # Adjust the day of the week to start from Wednesday
@@ -46,50 +47,70 @@ def process_file(file_path, period):
     predicted_sales_next_week.columns = ['Day of Week', f'Predicted {period} Sales']
     predicted_sales_next_week[f'Predicted {period} Sales'] = predicted_sales_next_week[f'Predicted {period} Sales'].round(2)
 
-    return predicted_sales_next_week
+    return predicted_sales_next_week, end_date
 
 def open_file_am():
-    global am_sales_predictions
+    global am_sales_predictions, latest_date_am
     file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
     if file_path:
-        am_sales_predictions = process_file(file_path, 'AM')
+        am_sales_predictions, latest_date_am = process_file(file_path, 'AM')
 
 def open_file_pm():
-    global pm_sales_predictions
+    global pm_sales_predictions, latest_date_pm
     file_path = filedialog.askopenfilename(filetypes=[("CSV files", "*.csv")])
     if file_path:
-        pm_sales_predictions = process_file(file_path, 'PM')
+        pm_sales_predictions, latest_date_pm = process_file(file_path, 'PM')
 
 def submit_files():
     if am_sales_predictions is not None and pm_sales_predictions is not None:
         combined_predictions = pd.merge(am_sales_predictions, pm_sales_predictions, on="Day of Week", how='outer')
         
-        # Assign dates for the next week (06/19-06/25) to the corresponding days
-        next_week_dates = {
-            'Wednesday': '06/19',
-            'Thursday': '06/20',
-            'Friday': '06/21',
-            'Saturday': '06/22',
-            'Sunday': '06/23',
-            'Monday': '06/24',
-            'Tuesday': '06/25'
-        }
-        combined_predictions['Date'] = combined_predictions['Day of Week'].map(next_week_dates)
+        # Determine the latest date between AM and PM data
+        latest_date = max(latest_date_am, latest_date_pm)
+        
+        # Calculate the next Wednesday
+        days_until_next_wednesday = (2 - latest_date.weekday() + 7) % 7  # Wednesday is day 2
+        if days_until_next_wednesday == 0:
+            days_until_next_wednesday = 7  # Ensure we go to the next Wednesday
+        next_wednesday = latest_date + pd.Timedelta(days=days_until_next_wednesday)
+
+        # Assign dates for the next week to the corresponding days
+        next_week_dates = [(next_wednesday + pd.Timedelta(days=i)).strftime('%m/%d') for i in range(7)]
+        day_order = ['Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday']
+        date_mapping = dict(zip(day_order, next_week_dates))
+
+        combined_predictions['Date'] = combined_predictions['Day of Week'].map(date_mapping)
         combined_predictions['Day with Date'] = combined_predictions['Day of Week'] + " " + combined_predictions['Date']
 
         # Sort by the correct order: Wednesday to Tuesday
-        day_order = ['Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday']
         combined_predictions['day_order'] = combined_predictions['Day of Week'].apply(adjust_weekdays)
         combined_predictions = combined_predictions.sort_values('day_order')
 
         predictions_text = combined_predictions[['Day with Date', 'Predicted AM Sales', 'Predicted PM Sales']].to_string(index=False)
         messagebox.showinfo("Sales Predictions", predictions_text)
+
+        # Save to a text file for printing
+        with open("sales_predictions.txt", "w") as file:
+            file.write(predictions_text)
+
     else:
         messagebox.showwarning("Warning", "Please select both AM and PM sales files.")
+
+def print_predictions():
+    if os.path.exists("sales_predictions.txt"):
+        # Command to print the text file
+        if os.name == 'nt':  # For Windows
+            os.startfile("sales_predictions.txt", "print")
+        else:
+            os.system("lp sales_predictions.txt")
+    else:
+        messagebox.showwarning("Warning", "No predictions available to print. Please generate predictions first.")
 
 # Initialize the global variables
 am_sales_predictions = None
 pm_sales_predictions = None
+latest_date_am = None
+latest_date_pm = None
 
 # Set up the main application window
 root = tk.Tk()
@@ -99,9 +120,12 @@ root.title("Sales Prediction")
 btn_am = tk.Button(root, text="Select AM Sales CSV File", command=open_file_am)
 btn_pm = tk.Button(root, text="Select PM Sales CSV File", command=open_file_pm)
 btn_submit = tk.Button(root, text="Submit", command=submit_files)
+btn_print = tk.Button(root, text="Print", command=print_predictions)
+
 btn_am.pack(pady=10)
 btn_pm.pack(pady=10)
-btn_submit.pack(pady=20)
+btn_submit.pack(pady=10)
+btn_print.pack(pady=20)
 
 # Run the application
 root.mainloop()
