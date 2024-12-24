@@ -95,11 +95,11 @@ A **Tkinter-based** Python application that predicts next week’s daily **AM** 
 
 - The script reads two columns from your CSV:
 
-# TextBox4: Contains dates in the format "Day of Week, Month DD, YYYY" (e.g., "Wednesday, August 23, 2023").
+### TextBox4: Contains dates in the format "Day of Week, Month DD, YYYY" (e.g., "Wednesday, August 23, 2023").
 
-# TextBox3: Contains sales amounts with dollar signs/commas optionally included (e.g., "$1,234.56").
+### TextBox3: Contains sales amounts with dollar signs/commas optionally included (e.g., "$1,234.56").
 
-### How It Works
+## How It Works
 
 1. Loading Data
 
